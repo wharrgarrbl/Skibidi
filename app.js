@@ -1,5 +1,4 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbzi4YazrywLy7VUsL-fuoaUCr8xq-hrBp33HjHsExZfJwqkXdh5VQeNGJrPElp6cG-rOg/exec"
-
 // ===== TOAST =====
 function showToast(message, duration = 2500) {
     const toast = document.getElementById("toast")
@@ -141,15 +140,15 @@ function renderTrips() {
         const div = document.createElement("div")
         div.className = "trip"
         div.innerHTML = `
-            <strong>${t.date}</strong> &nbsp;<span class="muted">${t.departure || ""}${t.arrival ? " – " + t.arrival : ""}</span><br>
-            ${t.captain} · ${t.route || "—"}<br>
+            <p class="trip-title">${t.route || "—"}</p>
+            <p class="trip-meta">${t.date} &nbsp;·&nbsp; ${t.captain}${t.departure ? " &nbsp;·&nbsp; " + t.departure : ""}${t.arrival ? " – " + t.arrival : ""}</p>
             <span class="tag">${t.miles || 0} mi</span>
             <span class="tag">${t.fuel || 0} L</span>
             ${t.photo ? '<span class="tag">📷</span>' : ""}
             <div class="trip-actions">
                 <button onclick="viewTrip('${t.id}')">View</button>
-                <button onclick="editTrip('${t.id}')">Edit</button>
-                <button onclick="deleteTrip('${t.id}')">Delete</button>
+                <button class="btn-secondary" onclick="editTrip('${t.id}')">Edit</button>
+                <button class="btn-secondary" onclick="deleteTrip('${t.id}')">Delete</button>
             </div>
         `
         list.appendChild(div)
@@ -163,13 +162,15 @@ function viewTrip(id) {
     const c = document.getElementById("tripDetailContent")
     if (!c) return
     c.innerHTML = `
-        <p><strong>Date:</strong> ${t.date}</p>
-        <p><strong>Departure:</strong> ${t.departure} &nbsp; <strong>Arrival:</strong> ${t.arrival}</p>
-        <p><strong>Captain:</strong> ${t.captain}</p>
-        <p><strong>Participants:</strong> ${t.participants || "—"}</p>
-        <p><strong>Route:</strong> ${t.route || "—"}</p>
-        <p><strong>Miles:</strong> ${t.miles} &nbsp; <strong>Fuel:</strong> ${t.fuel} L</p>
-        <p><strong>Engine hours:</strong> ${t.engineStart} → ${t.engineEnd}</p>
+        <div class="detail-row"><span class="detail-key">Date</span><span class="detail-val">${t.date}</span></div>
+        <div class="detail-row"><span class="detail-key">Departure</span><span class="detail-val">${t.departure}</span></div>
+        <div class="detail-row"><span class="detail-key">Arrival</span><span class="detail-val">${t.arrival}</span></div>
+        <div class="detail-row"><span class="detail-key">Captain</span><span class="detail-val">${t.captain}</span></div>
+        <div class="detail-row"><span class="detail-key">Participants</span><span class="detail-val">${t.participants || "—"}</span></div>
+        <div class="detail-row"><span class="detail-key">Route</span><span class="detail-val">${t.route || "—"}</span></div>
+        <div class="detail-row"><span class="detail-key">Miles</span><span class="detail-val">${t.miles}</span></div>
+        <div class="detail-row"><span class="detail-key">Fuel</span><span class="detail-val">${t.fuel} L</span></div>
+        <div class="detail-row"><span class="detail-key">Engine hours</span><span class="detail-val">${t.engineStart} → ${t.engineEnd}</span></div>
         ${t.photo ? `<img src="${t.photo}" alt="Trip photo">` : ""}
     `
     showPage("tripDetail")
@@ -345,14 +346,14 @@ function renderNotes() {
         const div = document.createElement("div")
         div.className = "trip"
         div.innerHTML = `
-            <strong>${n.date}</strong><br>
-            <span class="muted">${short}</span><br>
+            <p class="trip-title" style="font-size:15px">${short}</p>
+            <p class="trip-meta">${n.date}</p>
             ${n.photo ? '<span class="tag">📷</span>' : ""}
             ${(n.lat && n.lng) ? '<span class="tag">📍</span>' : ""}
             <div class="trip-actions">
                 <button onclick="viewNote('${n.id}')">View</button>
-                <button onclick="editNote('${n.id}')">Edit</button>
-                <button onclick="deleteNote('${n.id}')">Delete</button>
+                <button class="btn-secondary" onclick="editNote('${n.id}')">Edit</button>
+                <button class="btn-secondary" onclick="deleteNote('${n.id}')">Delete</button>
             </div>
         `
         list.appendChild(div)
@@ -481,19 +482,22 @@ function renderInvoices() {
     const total = invoices.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0)
     const totalDiv = document.createElement("div")
     totalDiv.className = "invoice-total"
-    totalDiv.innerHTML = `Total: <strong>€${total.toFixed(2)}</strong> &nbsp;<span class="muted">(${invoices.length} expense${invoices.length !== 1 ? "s" : ""})</span>`
+    totalDiv.innerHTML = `
+        <span class="invoice-total-label">Total spent</span>
+        <span class="invoice-total-amount">€${total.toFixed(2)}</span>
+    `
     list.appendChild(totalDiv)
     invoices.forEach(inv => {
         const div = document.createElement("div")
         div.className = "trip"
         div.innerHTML = `
-            <strong>${inv.desc}</strong> &nbsp; <strong>€${parseFloat(inv.amount || 0).toFixed(2)}</strong><br>
-            <span class="tag">${inv.category || "Other"}</span>
-            <span class="muted">${inv.date || ""}</span><br>
+            <p class="trip-title">${inv.desc}</p>
+            <p class="trip-meta">${inv.date || ""} &nbsp;·&nbsp; ${inv.category || "Other"}</p>
+            <span class="tag">€${parseFloat(inv.amount || 0).toFixed(2)}</span>
             ${inv.photo ? `<img src="${inv.photo}" alt="Receipt">` : ""}
             <div class="trip-actions">
-                <button onclick="editInvoice('${inv.id}')">Edit</button>
-                <button onclick="deleteInvoice('${inv.id}')">Delete</button>
+                <button class="btn-secondary" onclick="editInvoice('${inv.id}')">Edit</button>
+                <button class="btn-secondary" onclick="deleteInvoice('${inv.id}')">Delete</button>
             </div>
         `
         list.appendChild(div)
