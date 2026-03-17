@@ -1,0 +1,8 @@
+{
+  "name": "XO240 Logbook",
+  "short_name": "XO240",
+  "display": "standalone",
+  "start_url": ".",
+  "background_color": "#ffffff",
+  "theme_color": "#111111"
+}
