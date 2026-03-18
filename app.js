@@ -131,7 +131,9 @@ function renderTrips() {
     const trips = JSON.parse(localStorage.getItem("trips") || "[]")
     list.innerHTML = ""
 
-    const filtered = trips.filter(t => !filter || t.date === filter)
+    const filtered = trips
+        .filter(t => !filter || t.date === filter)
+        .filter(t => t.date || t.route || t.captain) // skip empty rows
 
     if (!filtered.length) {
         list.innerHTML = `<p class="empty">${filter ? "No outings on this date" : "No outings logged yet"}</p>`
