@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbx24RACGjBc9j_8QVEcGV7UfVHxOJOO54BekHwF0h5PjEFJ_Ve1gJJz4ofT-DHmJVcFKA/exec"
+const API_URL = "https://script.google.com/macros/s/AKfycbyPhfQ7MZonZHZHo11BMefKC4fbiDZd52D11YOJPgb-6cZDCq-7W8duOp3bJCW__YUpzA/exec"
 
 // ===== TOAST =====
 function showToast(message, duration = 2500) {
@@ -296,6 +296,7 @@ async function loadNotesFromServer() {
     try {
         const res = await postData({ action: "getNotes" })
         const data = await res.json()
+        console.log("getNotes response:", data)
         const notes = Array.isArray(data) ? data : []
         localStorage.setItem("notes", JSON.stringify(notes))
         renderNotes()
@@ -424,6 +425,7 @@ async function loadInvoicesFromServer() {
     try {
         const res = await postData({ action: "getInvoices" })
         const data = await res.json()
+        console.log("getInvoices response:", data)
         const invoices = Array.isArray(data) ? data : []
         localStorage.setItem("invoices", JSON.stringify(invoices))
         renderInvoices()
