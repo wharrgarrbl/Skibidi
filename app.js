@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyPhfQ7MZonZHZHo11BMefKC4fbiDZd52D11YOJPgb-6cZDCq-7W8duOp3bJCW__YUpzA/exec"
+const API_URL = "https://script.google.com/macros/s/AKfycbyVzQBC-kaWrZh_4HVm6wqX9J7zmuVMACS3ScPQm95T9bUngzigqPXigwfzdd2bpd7QEw/exec"
 
 // ===== TOAST =====
 function showToast(message, duration = 2500) {
@@ -67,6 +67,15 @@ function generateFilename(prefix) {
 
 function today() {
     return new Date().toISOString().split("T")[0]
+}
+
+function fmtDate(val) {
+    if (!val) return "—"
+    try {
+        const d = new Date(val)
+        if (isNaN(d.getTime())) return val
+        return d.toLocaleDateString("et-EE", { day: "numeric", month: "long", year: "numeric" })
+    } catch(e) { return val }
 }
 
 // ===== GPS =====
@@ -145,7 +154,7 @@ function renderTrips() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title">${t.route || "—"}</p>
-            <p class="trip-meta">${t.date} &nbsp;·&nbsp; ${t.captain}${t.departure ? " &nbsp;·&nbsp; " + t.departure : ""}${t.arrival ? " – " + t.arrival : ""}</p>
+            <p class="trip-meta">${fmtDate(t.date)} &nbsp;·&nbsp; ${t.captain}${t.departure ? " &nbsp;·&nbsp; " + t.departure : ""}${t.arrival ? " – " + t.arrival : ""}</p>
             <span class="tag">${t.miles || 0} mi</span>
             <span class="tag">${t.fuel || 0} L</span>
             ${t.photo ? '<span class="tag">📷</span>' : ""}
@@ -166,7 +175,7 @@ function viewTrip(id) {
     const c = document.getElementById("tripDetailContent")
     if (!c) return
     c.innerHTML = `
-        <div class="detail-row"><span class="detail-key">Date</span><span class="detail-val">${t.date}</span></div>
+        <div class="detail-row"><span class="detail-key">Date</span><span class="detail-val">${fmtDate(t.date)}</span></div>
         <div class="detail-row"><span class="detail-key">Departure</span><span class="detail-val">${t.departure}</span></div>
         <div class="detail-row"><span class="detail-key">Arrival</span><span class="detail-val">${t.arrival}</span></div>
         <div class="detail-row"><span class="detail-key">Captain</span><span class="detail-val">${t.captain}</span></div>
@@ -353,7 +362,7 @@ function renderNotes() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title" style="font-size:15px">${short}</p>
-            <p class="trip-meta">${n.date}</p>
+            <p class="trip-meta">${fmtDate(n.date)}</p>
             ${n.photo ? '<span class="tag">📷</span>' : ""}
             ${(n.lat && n.lng) ? '<span class="tag">📍</span>' : ""}
             <div class="trip-actions">
@@ -377,7 +386,7 @@ function viewNote(id) {
             ${parseFloat(n.lat).toFixed(5)}, ${parseFloat(n.lng).toFixed(5)}</a></p>`
     }
     document.getElementById("noteDetailContent").innerHTML = `
-        <p><strong>Date:</strong> ${n.date}</p>
+        <p><strong>Date:</strong> ${fmtDate(n.date)}</p>
         <p style="white-space:pre-wrap">${n.text}</p>
         ${locationHtml}
         ${n.photo ? `<img src="${n.photo}" alt="Note photo">` : ""}
@@ -500,7 +509,7 @@ function renderInvoices() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title">${inv.desc}</p>
-            <p class="trip-meta">${inv.date || ""} &nbsp;·&nbsp; ${inv.category || "Other"}</p>
+            <p class="trip-meta">${fmtDate(inv.date)} &nbsp;·&nbsp; ${inv.category || "Other"}</p>
             <span class="tag">€${parseFloat(inv.amount || 0).toFixed(2)}</span>
             ${inv.photo ? `<img src="${inv.photo}" alt="Receipt">` : ""}
             <div class="trip-actions">
