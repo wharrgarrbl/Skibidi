@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzPrE2YFFUxj4ax9eNjiTfp-Xbxqg4aJAc7A0lcnxUvr6z72xA3aXWWurwaWpgimIqDFg/exec"
+const API_URL = "https://script.google.com/macros/s/AKfycbyVzQBC-kaWrZh_4HVm6wqX9J7zmuVMACS3ScPQm95T9bUngzigqPXigwfzdd2bpd7QEw/exec"
 
 // ===== TOAST =====
 function showToast(message, duration = 2500) {
@@ -638,29 +638,19 @@ function renderWarnings(warnings) {
         const charts   = a.charts || ""
         const dateFrom = a.date_from ? new Date(a.date_from) : null
         const dateTo   = a.date_to   ? new Date(a.date_to)   : null
-        const dateRange = formatDateRange(dateFrom, dateTo)
-        const id        = String(a.globalid || idx).replace(/[{}]/g, "")
+        const dateFrom_str = dateFrom ? dateFrom.toLocaleDateString("et-EE", { day: "numeric", month: "short", year: "numeric" }) : ""
+        const dateRange    = formatDateRange(dateFrom, dateTo)
+        const id           = String(a.globalid || idx).replace(/[{}]/g, "")
 
         const card = document.createElement("div")
-        card.className = "warning-card"
+        card.className = "trip warning-card"
         card.id = "warning-" + id
+        card.style.cursor = "pointer"
+        card.onclick = () => toggleWarning(id)
 
         card.innerHTML = `
-            <div class="warning-header" onclick="toggleWarning('${id}')">
-                <div class="warning-header-main">
-                    ${number ? `<span class="warning-number">#${number}</span>` : ""}
-                    <span class="warning-title">${title}</span>
-                </div>
-                <div class="warning-header-meta">
-                    ${area ? `<span class="tag">${area}</span>` : ""}
-                    ${dateRange ? `<span class="warning-date">${dateRange}</span>` : ""}
-                    <span class="warning-chevron">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"/>
-                        </svg>
-                    </span>
-                </div>
-            </div>
+            <p class="trip-title">${number ? `#${number} — ` : ""}${title}</p>
+            <p class="trip-meta">${dateFrom_str ? "Alates " + dateFrom_str : "—"}</p>
             <div class="warning-body">
                 ${text ? `<p class="warning-desc">${text}</p>` : ""}
                 <div class="warning-detail-row">
@@ -680,7 +670,7 @@ function renderWarnings(warnings) {
                     <span class="detail-val">${charts}</span>
                 </div>` : ""}
                 ${docUrl ? `<div class="warning-actions">
-                    <a href="${docUrl}" target="_blank" class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid var(--border);color:var(--text);margin-top:12px;">Dokument ↗</a>
+                    <a href="${docUrl}" target="_blank" class="btn-secondary" onclick="event.stopPropagation()" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid var(--border);color:var(--text);margin-top:12px;">Dokument ↗</a>
                 </div>` : ""}
             </div>
         `
