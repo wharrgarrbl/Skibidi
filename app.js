@@ -545,10 +545,43 @@ async function deleteInvoice(id) {
 // ========================================
 // ===== INIT =====
 // ========================================
+function cleanupLocalStorage() {
+    // Remove corrupted data caused by the old GET bug where trips were
+    // stored as notes/invoices and vice versa.
+    try {
+        const trips = JSON.parse(localStorage.getItem("trips") || "[]")
+        const notes = JSON.parse(localStorage.getItem("notes") || "[]")
+        const invoices = JSON.parse(localStorage.getItem("invoices") || "[]")
+
+        // Trips should have 'departure'. If any don't, wipe trips cache.
+        if (trips.length && trips[0].departure === undefined) {
+            console.log("Clearing corrupted trips cache")
+            localStorage.removeItem("trips")
+        }
+
+        // Notes should have 'text'. If any don't, wipe notes cache.
+        if (notes.length && notes[0].text === undefined) {
+            console.log("Clearing corrupted notes cache")
+            localStorage.removeItem("notes")
+        }
+
+        // Invoices should have 'desc'. If any don't, wipe invoices cache.
+        if (invoices.length && invoices[0].desc === undefined) {
+            console.log("Clearing corrupted invoices cache")
+            localStorage.removeItem("invoices")
+        }
+    } catch (e) {
+        // If anything is unparseable just wipe all three and let server reload
+        localStorage.removeItem("trips")
+        localStorage.removeItem("notes")
+        localStorage.removeItem("invoices")
+    }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
-    // Set active nav for initial page
     document.getElementById("navLog")?.classList.add("active")
 
+    cleanupLocalStorage()
     setDefaultLogValues()
 
     loadTripsFromServer()
