@@ -417,3 +417,49 @@ box-shadow:0 4px 20px rgba(0,0,0,0.15);
 
 #toast.show{opacity:1;}
 
+
+/* ── WARNINGS ── */
+.warnings-count-badge{
+  font-size:13px;
+  font-weight:500;
+  color:var(--text-muted);
+  display:block;
+}
+
+.warning-card .warning-body{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height 0.3s ease;
+}
+
+.warning-card.open .warning-body{
+  max-height:800px;
+}
+
+.warning-desc{
+  font-size:14px;
+  color:var(--text-muted);
+  line-height:1.6;
+  margin:12px 0 10px;
+  white-space:pre-line;
+}
+
+.warning-detail-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  padding:8px 0;
+  border-bottom:1px solid var(--border);
+  font-size:14px;
+}
+
+.warning-detail-row:last-of-type{
+  border-bottom:none;
+}
+
+.warning-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:4px;
+}
