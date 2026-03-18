@@ -292,10 +292,13 @@ function cancelNoteEdit() {
 
 async function loadNotesFromServer() {
     try {
-        const res = await fetch(API_URL + "?action=notes")
+        const res = await postData({ action: "getNotes" })
         const data = await res.json()
         const notes = Array.isArray(data) ? data : []
-        localStorage.setItem("notes", JSON.stringify(notes))
+        // Guard: reject trip data accidentally returned (trips have 'departure', notes have 'text')
+        if (notes.length === 0 || notes[0].text !== undefined) {
+            localStorage.setItem("notes", JSON.stringify(notes))
+        }
         renderNotes()
     } catch (err) {
         console.error("Failed to load notes", err)
@@ -344,7 +347,8 @@ function renderNotes() {
         return
     }
     notes.forEach(n => {
-        const short = (n.text || "").length > 80 ? n.text.substring(0, 80) + "…" : n.text
+        const text = n.text || ""
+        const short = text.length > 80 ? text.substring(0, 80) + "…" : text
         const div = document.createElement("div")
         div.className = "trip"
         div.innerHTML = `
@@ -400,13 +404,14 @@ function editNote(id) {
 
 async function deleteNote(id) {
     if (!confirm("Delete this note?")) return
-    showToast("Deleting…")
+    const notes = JSON.parse(localStorage.getItem("notes") || "[]")
+    localStorage.setItem("notes", JSON.stringify(notes.filter(n => String(n.id) !== String(id))))
+    renderNotes()
+    showToast("Note deleted")
     try {
         await postData({ action: "deleteNote", id })
-        await loadNotesFromServer()
-        showToast("Note deleted")
     } catch (err) {
-        showToast("Error deleting note")
+        console.warn("Server delete failed", err)
     }
 }
 
@@ -418,10 +423,13 @@ let editingInvoiceId = null
 
 async function loadInvoicesFromServer() {
     try {
-        const res = await fetch(API_URL + "?action=invoices")
+        const res = await postData({ action: "getInvoices" })
         const data = await res.json()
         const invoices = Array.isArray(data) ? data : []
-        localStorage.setItem("invoices", JSON.stringify(invoices))
+        // Guard: reject trip data accidentally returned (trips have 'departure', invoices have 'desc')
+        if (invoices.length === 0 || invoices[0].desc !== undefined) {
+            localStorage.setItem("invoices", JSON.stringify(invoices))
+        }
         renderInvoices()
     } catch (err) {
         console.error("Failed to load invoices", err)
@@ -522,13 +530,14 @@ function editInvoice(id) {
 
 async function deleteInvoice(id) {
     if (!confirm("Delete this expense?")) return
-    showToast("Deleting…")
+    const invoices = JSON.parse(localStorage.getItem("invoices") || "[]")
+    localStorage.setItem("invoices", JSON.stringify(invoices.filter(i => String(i.id) !== String(id))))
+    renderInvoices()
+    showToast("Expense deleted")
     try {
         await postData({ action: "deleteInvoice", id })
-        await loadInvoicesFromServer()
-        showToast("Expense deleted")
     } catch (err) {
-        showToast("Error deleting expense")
+        console.warn("Server delete failed", err)
     }
 }
 
