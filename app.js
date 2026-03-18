@@ -295,10 +295,7 @@ async function loadNotesFromServer() {
         const res = await postData({ action: "getNotes" })
         const data = await res.json()
         const notes = Array.isArray(data) ? data : []
-        // Guard: reject trip data accidentally returned (trips have 'departure', notes have 'text')
-        if (notes.length === 0 || notes[0].text !== undefined) {
-            localStorage.setItem("notes", JSON.stringify(notes))
-        }
+        localStorage.setItem("notes", JSON.stringify(notes))
         renderNotes()
     } catch (err) {
         console.error("Failed to load notes", err)
@@ -426,10 +423,7 @@ async function loadInvoicesFromServer() {
         const res = await postData({ action: "getInvoices" })
         const data = await res.json()
         const invoices = Array.isArray(data) ? data : []
-        // Guard: reject trip data accidentally returned (trips have 'departure', invoices have 'desc')
-        if (invoices.length === 0 || invoices[0].desc !== undefined) {
-            localStorage.setItem("invoices", JSON.stringify(invoices))
-        }
+        localStorage.setItem("invoices", JSON.stringify(invoices))
         renderInvoices()
     } catch (err) {
         console.error("Failed to load invoices", err)
@@ -546,36 +540,11 @@ async function deleteInvoice(id) {
 // ===== INIT =====
 // ========================================
 function cleanupLocalStorage() {
-    // Remove corrupted data caused by the old GET bug where trips were
-    // stored as notes/invoices and vice versa.
-    try {
-        const trips = JSON.parse(localStorage.getItem("trips") || "[]")
-        const notes = JSON.parse(localStorage.getItem("notes") || "[]")
-        const invoices = JSON.parse(localStorage.getItem("invoices") || "[]")
-
-        // Trips should have 'departure'. If any don't, wipe trips cache.
-        if (trips.length && trips[0].departure === undefined) {
-            console.log("Clearing corrupted trips cache")
-            localStorage.removeItem("trips")
-        }
-
-        // Notes should have 'text'. If any don't, wipe notes cache.
-        if (notes.length && notes[0].text === undefined) {
-            console.log("Clearing corrupted notes cache")
-            localStorage.removeItem("notes")
-        }
-
-        // Invoices should have 'desc'. If any don't, wipe invoices cache.
-        if (invoices.length && invoices[0].desc === undefined) {
-            console.log("Clearing corrupted invoices cache")
-            localStorage.removeItem("invoices")
-        }
-    } catch (e) {
-        // If anything is unparseable just wipe all three and let server reload
-        localStorage.removeItem("trips")
-        localStorage.removeItem("notes")
-        localStorage.removeItem("invoices")
-    }
+    // Always wipe caches on startup and reload fresh from server.
+    // localStorage is used as a display cache only, not a source of truth.
+    localStorage.removeItem("trips")
+    localStorage.removeItem("notes")
+    localStorage.removeItem("invoices")
 }
 
 window.addEventListener("DOMContentLoaded", () => {
