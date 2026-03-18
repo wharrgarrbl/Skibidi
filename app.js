@@ -556,55 +556,22 @@ window.addEventListener("DOMContentLoaded", () => {
 
 const ARCGIS_BASE = "https://gis.transpordiamet.ee/arcgis/rest/services/navigatsioonihoiatused/nav_hoiatused_avalik/MapServer"
 
-// Area code → human readable label
 const AREA_LABELS = {
-    soo: "Gulf of Finland",
+    soo: "Soome laht",
     vai: "Väinameri",
-    lii: "Gulf of Riga",
-    laa: "Northern Baltic Sea",
-    sis: "Inland waters",
-    ran: "Estonian coastal waters"
+    lii: "Liivi laht",
+    laa: "Läänemeri",
+    sis: "Siseveed",
+    ran: "Eesti rannikumeri"
 }
 
-// Output channel labels
 const OUTPUT_LABELS = {
-    0: "Website",
-    1: "Website / Tallinn Radio",
-    2: "Website / Tallinn Radio / NAVTEX"
+    0: "Koduleht",
+    1: "Koduleht / Tallinn raadio",
+    2: "Koduleht / Tallinn raadio / NAVTEX"
 }
-
-const ESTONIA_CENTER = [59.2, 23.5]
-const ESTONIA_ZOOM   = 6
-
-let warningsMap         = null
-let warningsMarkerLayer = null
-let warningsGeoLayer    = null
-// globalid → L.layer for zoom-to
-let warningsGeoIndex    = {}
 
 function initWarningsMap() {
-    if (warningsMap) return
-
-    warningsMap = L.map("warningsMap", {
-        center: ESTONIA_CENTER,
-        zoom: ESTONIA_ZOOM,
-        zoomControl: false,
-        attributionControl: false
-    })
-
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-        subdomains: "abcd", maxZoom: 19
-    }).addTo(warningsMap)
-
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
-        subdomains: "abcd", maxZoom: 19, pane: "shadowPane"
-    }).addTo(warningsMap)
-
-    L.control.zoom({ position: "bottomright" }).addTo(warningsMap)
-
-    warningsMarkerLayer = L.layerGroup().addTo(warningsMap)
-    warningsGeoLayer    = L.layerGroup().addTo(warningsMap)
-
     loadWarnings()
     setInterval(loadWarnings, 5 * 60 * 1000)
 }
@@ -614,122 +581,60 @@ async function loadWarnings() {
     const countEl = document.getElementById("warningsCount")
     if (!list) return
 
-    list.innerHTML = `<p class="empty">Loading…</p>`
+    list.innerHTML = `<p class="empty">Laen…</p>`
 
     try {
-        // 1. Fetch active warning records from the data table (status=2 → "Kehtivad")
-        const tableRes = await fetch(
+        const res = await fetch(
             `${ARCGIS_BASE}/4/query?where=status%3D2&outFields=*&f=json`
         )
-        if (!tableRes.ok) throw new Error("Table fetch failed: " + tableRes.status)
-        const tableData = await tableRes.json()
+        if (!res.ok) throw new Error("HTTP " + res.status)
+        const data = await res.json()
+        if (data.error) throw new Error(data.error.message)
 
-        if (tableData.error) throw new Error(tableData.error.message)
-
-        const warnings = tableData.features || []
-
-        // 2. Fetch geometry from all three layers in parallel (points, lines, polygons)
-        const [pts, lns, pols] = await Promise.all(
-            [0, 1, 2].map(id =>
-                fetch(`${ARCGIS_BASE}/${id}/query?where=1%3D1&outFields=warn_globalid&returnGeometry=true&f=geojson`)
-                    .then(r => r.json())
-                    .catch(() => ({ features: [] }))
-            )
-        )
-
-        // 3. Build globalid → GeoJSON feature map
-        const geoByGlobalId = {}
-        for (const fc of [pts, lns, pols]) {
-            for (const f of (fc.features || [])) {
-                const gid = f.properties?.warn_globalid
-                if (gid) geoByGlobalId[gid] = f
-            }
-        }
-
-        renderWarnings(warnings, geoByGlobalId)
+        renderWarnings(data.features || [])
 
     } catch (err) {
-        console.error("Failed to load warnings:", err)
-        list.innerHTML = `<p class="empty">Could not load warnings.<br><small>${err.message}</small></p>`
-        if (countEl) countEl.textContent = "—"
+        console.error("Hoiatuste laadimine ebaõnnestus:", err)
+        list.innerHTML = `<p class="empty">Hoiatuste laadimine ebaõnnestus.<br><small>${err.message}</small></p>`
+        if (countEl) countEl.textContent = ""
     }
 }
 
-function renderWarnings(warnings, geoByGlobalId) {
+function renderWarnings(warnings) {
     const list    = document.getElementById("warningsList")
     const countEl = document.getElementById("warningsCount")
 
     if (countEl) countEl.textContent = warnings.length
-
-    warningsMarkerLayer.clearLayers()
-    warningsGeoLayer.clearLayers()
-    warningsGeoIndex = {}
+        ? `${warnings.length} kehtivat hoiatust`
+        : ""
 
     if (!warnings.length) {
-        list.innerHTML = `<p class="empty">No active warnings</p>`
+        list.innerHTML = `<p class="empty">Kehtivaid hoiatusi ei ole</p>`
         return
     }
 
     list.innerHTML = ""
 
-    // Sort by warning_number descending (newest first)
     warnings.sort((a, b) => (b.attributes.warning_number || 0) - (a.attributes.warning_number || 0))
 
     warnings.forEach((w, idx) => {
-        const a  = w.attributes
-        const id = a.globalid || idx
+        const a = w.attributes
 
-        const title    = a.ntfct_title_eng || a.ntfct_title_est || "Warning " + (a.warning_number || idx + 1)
-        const textEng  = a.ntfct_text_eng  || ""
-        const textEst  = a.ntfct_text_est  || ""
-        const number   = a.warning_number  || ""
-        const area     = AREA_LABELS[a.area_eng] || AREA_LABELS[a.area_est] || ""
-        const output   = OUTPUT_LABELS[a.warning_output] || ""
-        const docUrl   = a.document_url    || ""
-        const charts   = a.charts          || ""
+        const number   = a.warning_number || ""
+        const title    = a.ntfct_title_est || "Hoiatus " + (number || idx + 1)
+        const text     = a.ntfct_text_est  || a.comments || ""
+        const area     = AREA_LABELS[a.area_est] || ""
+        const output   = OUTPUT_LABELS[a.warning_output] ?? ""
+        const docUrl   = a.document_url || ""
+        const charts   = a.charts || ""
         const dateFrom = a.date_from ? new Date(a.date_from) : null
         const dateTo   = a.date_to   ? new Date(a.date_to)   : null
         const dateRange = formatDateRange(dateFrom, dateTo)
+        const id        = String(a.globalid || idx).replace(/[{}]/g, "")
 
-        // Place geometry on map
-        const geo = geoByGlobalId[id]
-        if (geo) {
-            try {
-                const geomType = geo.geometry?.type || ""
-
-                if (geomType === "Point") {
-                    const [lng, lat] = geo.geometry.coordinates
-                    const dot = L.divIcon({
-                        className: "",
-                        html: `<div class="warning-map-dot"></div>`,
-                        iconSize: [12, 12], iconAnchor: [6, 6]
-                    })
-                    const marker = L.marker([lat, lng], { icon: dot })
-                    marker.on("click", () => toggleWarning(id))
-                    warningsMarkerLayer.addLayer(marker)
-                    warningsGeoIndex[id] = marker
-                } else {
-                    // Line or polygon
-                    const layer = L.geoJSON(geo, {
-                        style: {
-                            color: "#a7ff67",
-                            weight: 2,
-                            fillColor: "#a7ff67",
-                            fillOpacity: 0.15,
-                            opacity: 0.8
-                        }
-                    })
-                    layer.on("click", () => toggleWarning(id))
-                    warningsGeoLayer.addLayer(layer)
-                    warningsGeoIndex[id] = layer
-                }
-            } catch (e) { console.warn("Geo error:", e) }
-        }
-
-        // Build card
         const card = document.createElement("div")
         card.className = "warning-card"
-        card.id = "warning-" + id.replace(/[{}]/g, "")
+        card.id = "warning-" + id
 
         card.innerHTML = `
             <div class="warning-header" onclick="toggleWarning('${id}')">
@@ -748,28 +653,26 @@ function renderWarnings(warnings, geoByGlobalId) {
                 </div>
             </div>
             <div class="warning-body">
-                ${textEng ? `<p class="warning-desc">${textEng}</p>` : ""}
-                ${textEst && textEst !== textEng ? `<p class="warning-desc" style="font-size:13px;opacity:0.7">${textEst}</p>` : ""}
+                ${text ? `<p class="warning-desc">${text}</p>` : ""}
                 <div class="warning-detail-row">
-                    <span class="detail-key">Valid</span>
+                    <span class="detail-key">Kehtib</span>
                     <span class="detail-val">${dateRange || "—"}</span>
                 </div>
                 ${area ? `<div class="warning-detail-row">
-                    <span class="detail-key">Area</span>
+                    <span class="detail-key">Piirkond</span>
                     <span class="detail-val">${area}</span>
                 </div>` : ""}
                 ${output ? `<div class="warning-detail-row">
-                    <span class="detail-key">Channel</span>
+                    <span class="detail-key">Väljund</span>
                     <span class="detail-val">${output}</span>
                 </div>` : ""}
                 ${charts ? `<div class="warning-detail-row">
-                    <span class="detail-key">Charts</span>
+                    <span class="detail-key">Kaardid</span>
                     <span class="detail-val">${charts}</span>
                 </div>` : ""}
-                <div class="warning-actions">
-                    ${geo ? `<button class="btn-secondary" onclick="zoomToWarning('${id}')">Show on map ↑</button>` : ""}
-                    ${docUrl ? `<a href="${docUrl}" target="_blank" class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid var(--border);color:var(--text);margin-top:12px;">Document ↗</a>` : ""}
-                </div>
+                ${docUrl ? `<div class="warning-actions">
+                    <a href="${docUrl}" target="_blank" class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid var(--border);color:var(--text);margin-top:12px;">Dokument ↗</a>
+                </div>` : ""}
             </div>
         `
 
@@ -777,39 +680,22 @@ function renderWarnings(warnings, geoByGlobalId) {
     })
 }
 
-function toggleWarning(rawId) {
-    const id   = String(rawId).replace(/[{}]/g, "")
+function toggleWarning(id) {
     const card = document.getElementById("warning-" + id)
     if (!card) return
-
     const isOpen = card.classList.contains("open")
     document.querySelectorAll(".warning-card.open").forEach(c => c.classList.remove("open"))
     if (!isOpen) card.classList.add("open")
 }
 
-function zoomToWarning(rawId) {
-    const layer = warningsGeoIndex[rawId]
-    if (!layer) return
-
-    try {
-        if (layer.getLatLng) {
-            warningsMap.setView(layer.getLatLng(), 11, { animate: true })
-        } else {
-            warningsMap.fitBounds(layer.getBounds(), { maxZoom: 11, padding: [40, 40], animate: true })
-        }
-    } catch (e) {}
-
-    document.getElementById("warningsMapWrap").scrollIntoView({ behavior: "smooth" })
-}
-
 function formatDateRange(from, to) {
     const fmt = d => {
         if (!d) return ""
-        return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+        return d.toLocaleDateString("et-EE", { day: "numeric", month: "short", year: "numeric" })
     }
     const f = fmt(from), t = fmt(to)
     if (f && t) return f + " – " + t
-    if (f)      return "From " + f
-    if (t)      return "Until " + t
+    if (f)      return "Alates " + f
+    if (t)      return "Kuni " + t
     return ""
 }
