@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyVzQBC-kaWrZh_4HVm6wqX9J7zmuVMACS3ScPQm95T9bUngzigqPXigwfzdd2bpd7QEw/exec"
+const API_URL = "https://script.google.com/macros/s/AKfycbzPrE2YFFUxj4ax9eNjiTfp-Xbxqg4aJAc7A0lcnxUvr6z72xA3aXWWurwaWpgimIqDFg/exec"
 
 // ===== TOAST =====
 function showToast(message, duration = 2500) {
@@ -69,15 +69,6 @@ function today() {
     return new Date().toISOString().split("T")[0]
 }
 
-function fmtDate(val) {
-    if (!val) return "—"
-    try {
-        const d = new Date(val)
-        if (isNaN(d.getTime())) return val
-        return d.toLocaleDateString("et-EE", { day: "numeric", month: "long", year: "numeric" })
-    } catch(e) { return val }
-}
-
 // ===== GPS =====
 let currentLocation = null
 
@@ -140,9 +131,7 @@ function renderTrips() {
     const trips = JSON.parse(localStorage.getItem("trips") || "[]")
     list.innerHTML = ""
 
-    const filtered = trips
-        .filter(t => !filter || t.date === filter)
-        .filter(t => t.date || t.route || t.captain) // skip empty rows
+    const filtered = trips.filter(t => !filter || t.date === filter)
 
     if (!filtered.length) {
         list.innerHTML = `<p class="empty">${filter ? "No outings on this date" : "No outings logged yet"}</p>`
@@ -154,7 +143,7 @@ function renderTrips() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title">${t.route || "—"}</p>
-            <p class="trip-meta">${fmtDate(t.date)} &nbsp;·&nbsp; ${t.captain}${t.departure ? " &nbsp;·&nbsp; " + t.departure : ""}${t.arrival ? " – " + t.arrival : ""}</p>
+            <p class="trip-meta">${t.date} &nbsp;·&nbsp; ${t.captain}${t.departure ? " &nbsp;·&nbsp; " + t.departure : ""}${t.arrival ? " – " + t.arrival : ""}</p>
             <span class="tag">${t.miles || 0} mi</span>
             <span class="tag">${t.fuel || 0} L</span>
             ${t.photo ? '<span class="tag">📷</span>' : ""}
@@ -175,7 +164,7 @@ function viewTrip(id) {
     const c = document.getElementById("tripDetailContent")
     if (!c) return
     c.innerHTML = `
-        <div class="detail-row"><span class="detail-key">Date</span><span class="detail-val">${fmtDate(t.date)}</span></div>
+        <div class="detail-row"><span class="detail-key">Date</span><span class="detail-val">${t.date}</span></div>
         <div class="detail-row"><span class="detail-key">Departure</span><span class="detail-val">${t.departure}</span></div>
         <div class="detail-row"><span class="detail-key">Arrival</span><span class="detail-val">${t.arrival}</span></div>
         <div class="detail-row"><span class="detail-key">Captain</span><span class="detail-val">${t.captain}</span></div>
@@ -305,9 +294,11 @@ async function loadNotesFromServer() {
     try {
         const res = await postData({ action: "getNotes" })
         const data = await res.json()
-        console.log("getNotes response:", data)
         const notes = Array.isArray(data) ? data : []
-        localStorage.setItem("notes", JSON.stringify(notes))
+        // Guard: reject trip data accidentally returned (trips have 'departure', notes have 'text')
+        if (notes.length === 0 || notes[0].text !== undefined) {
+            localStorage.setItem("notes", JSON.stringify(notes))
+        }
         renderNotes()
     } catch (err) {
         console.error("Failed to load notes", err)
@@ -362,7 +353,7 @@ function renderNotes() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title" style="font-size:15px">${short}</p>
-            <p class="trip-meta">${fmtDate(n.date)}</p>
+            <p class="trip-meta">${n.date}</p>
             ${n.photo ? '<span class="tag">📷</span>' : ""}
             ${(n.lat && n.lng) ? '<span class="tag">📍</span>' : ""}
             <div class="trip-actions">
@@ -386,7 +377,7 @@ function viewNote(id) {
             ${parseFloat(n.lat).toFixed(5)}, ${parseFloat(n.lng).toFixed(5)}</a></p>`
     }
     document.getElementById("noteDetailContent").innerHTML = `
-        <p><strong>Date:</strong> ${fmtDate(n.date)}</p>
+        <p><strong>Date:</strong> ${n.date}</p>
         <p style="white-space:pre-wrap">${n.text}</p>
         ${locationHtml}
         ${n.photo ? `<img src="${n.photo}" alt="Note photo">` : ""}
@@ -434,9 +425,11 @@ async function loadInvoicesFromServer() {
     try {
         const res = await postData({ action: "getInvoices" })
         const data = await res.json()
-        console.log("getInvoices response:", data)
         const invoices = Array.isArray(data) ? data : []
-        localStorage.setItem("invoices", JSON.stringify(invoices))
+        // Guard: reject trip data accidentally returned (trips have 'departure', invoices have 'desc')
+        if (invoices.length === 0 || invoices[0].desc !== undefined) {
+            localStorage.setItem("invoices", JSON.stringify(invoices))
+        }
         renderInvoices()
     } catch (err) {
         console.error("Failed to load invoices", err)
@@ -509,7 +502,7 @@ function renderInvoices() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title">${inv.desc}</p>
-            <p class="trip-meta">${fmtDate(inv.date)} &nbsp;·&nbsp; ${inv.category || "Other"}</p>
+            <p class="trip-meta">${inv.date || ""} &nbsp;·&nbsp; ${inv.category || "Other"}</p>
             <span class="tag">€${parseFloat(inv.amount || 0).toFixed(2)}</span>
             ${inv.photo ? `<img src="${inv.photo}" alt="Receipt">` : ""}
             <div class="trip-actions">
@@ -552,18 +545,10 @@ async function deleteInvoice(id) {
 // ========================================
 // ===== INIT =====
 // ========================================
-function cleanupLocalStorage() {
-    // Always wipe caches on startup and reload fresh from server.
-    // localStorage is used as a display cache only, not a source of truth.
-    localStorage.removeItem("trips")
-    localStorage.removeItem("notes")
-    localStorage.removeItem("invoices")
-}
-
 window.addEventListener("DOMContentLoaded", () => {
+    // Set active nav for initial page
     document.getElementById("navLog")?.classList.add("active")
 
-    cleanupLocalStorage()
     setDefaultLogValues()
 
     loadTripsFromServer()
@@ -653,19 +638,29 @@ function renderWarnings(warnings) {
         const charts   = a.charts || ""
         const dateFrom = a.date_from ? new Date(a.date_from) : null
         const dateTo   = a.date_to   ? new Date(a.date_to)   : null
-        const dateFrom_str = dateFrom ? dateFrom.toLocaleDateString("et-EE", { day: "numeric", month: "short", year: "numeric" }) : ""
-        const dateRange    = formatDateRange(dateFrom, dateTo)
-        const id           = String(a.globalid || idx).replace(/[{}]/g, "")
+        const dateRange = formatDateRange(dateFrom, dateTo)
+        const id        = String(a.globalid || idx).replace(/[{}]/g, "")
 
         const card = document.createElement("div")
-        card.className = "trip warning-card"
+        card.className = "warning-card"
         card.id = "warning-" + id
-        card.style.cursor = "pointer"
-        card.onclick = () => toggleWarning(id)
 
         card.innerHTML = `
-            <p class="trip-title">${number ? `#${number} — ` : ""}${title}</p>
-            <p class="trip-meta">${dateFrom_str ? "Alates " + dateFrom_str : "—"}</p>
+            <div class="warning-header" onclick="toggleWarning('${id}')">
+                <div class="warning-header-main">
+                    ${number ? `<span class="warning-number">#${number}</span>` : ""}
+                    <span class="warning-title">${title}</span>
+                </div>
+                <div class="warning-header-meta">
+                    ${area ? `<span class="tag">${area}</span>` : ""}
+                    ${dateRange ? `<span class="warning-date">${dateRange}</span>` : ""}
+                    <span class="warning-chevron">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </span>
+                </div>
+            </div>
             <div class="warning-body">
                 ${text ? `<p class="warning-desc">${text}</p>` : ""}
                 <div class="warning-detail-row">
@@ -685,7 +680,7 @@ function renderWarnings(warnings) {
                     <span class="detail-val">${charts}</span>
                 </div>` : ""}
                 ${docUrl ? `<div class="warning-actions">
-                    <a href="${docUrl}" target="_blank" class="btn-secondary" onclick="event.stopPropagation()" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid var(--border);color:var(--text);margin-top:12px;">Dokument ↗</a>
+                    <a href="${docUrl}" target="_blank" class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid var(--border);color:var(--text);margin-top:12px;">Dokument ↗</a>
                 </div>` : ""}
             </div>
         `
