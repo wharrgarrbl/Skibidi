@@ -69,6 +69,30 @@ function today() {
     return new Date().toISOString().split("T")[0]
 }
 
+// ===== DATE / TIME FORMATTING =====
+function fmtDate(val) {
+    if (!val) return "—"
+    const s = String(val)
+    // Extract YYYY-MM-DD from ISO string to avoid timezone shifts
+    const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (!match) return s
+    const [, y, m, d] = match
+    if (Number(y) < 1900 || Number(y) > 2100) return "—"
+    return new Date(Number(y), Number(m) - 1, Number(d))
+        .toLocaleDateString("et-EE", { day: "numeric", month: "long", year: "numeric" })
+}
+
+function fmtTime(val) {
+    if (!val) return ""
+    const s = String(val)
+    // Google Sheets stores times as 1899-12-30THH:MM:SS.000Z — extract HH:MM from the T part
+    const match = s.match(/T(\d{2}:\d{2})/)
+    if (match) return match[1]
+    // Already a plain HH:MM string
+    if (/^\d{2}:\d{2}$/.test(s)) return s
+    return s
+}
+
 // ===== GPS =====
 let currentLocation = null
 
@@ -131,7 +155,9 @@ function renderTrips() {
     const trips = JSON.parse(localStorage.getItem("trips") || "[]")
     list.innerHTML = ""
 
-    const filtered = trips.filter(t => !filter || t.date === filter)
+    const filtered = trips
+        .filter(t => !filter || t.date === filter)
+        .filter(t => t.date || t.route || t.captain)
 
     if (!filtered.length) {
         list.innerHTML = `<p class="empty">${filter ? "No outings on this date" : "No outings logged yet"}</p>`
@@ -143,7 +169,7 @@ function renderTrips() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title">${t.route || "—"}</p>
-            <p class="trip-meta">${t.date} &nbsp;·&nbsp; ${t.captain}${t.departure ? " &nbsp;·&nbsp; " + t.departure : ""}${t.arrival ? " – " + t.arrival : ""}</p>
+            <p class="trip-meta">${fmtDate(t.date)} &nbsp;·&nbsp; ${t.captain}${t.departure ? " &nbsp;·&nbsp; " + fmtTime(t.departure) : ""}${t.arrival ? " – " + fmtTime(t.arrival) : ""}</p>
             <span class="tag">${t.miles || 0} mi</span>
             <span class="tag">${t.fuel || 0} L</span>
             ${t.photo ? '<span class="tag">📷</span>' : ""}
@@ -164,9 +190,9 @@ function viewTrip(id) {
     const c = document.getElementById("tripDetailContent")
     if (!c) return
     c.innerHTML = `
-        <div class="detail-row"><span class="detail-key">Date</span><span class="detail-val">${t.date}</span></div>
-        <div class="detail-row"><span class="detail-key">Departure</span><span class="detail-val">${t.departure}</span></div>
-        <div class="detail-row"><span class="detail-key">Arrival</span><span class="detail-val">${t.arrival}</span></div>
+        <div class="detail-row"><span class="detail-key">Date</span><span class="detail-val">${fmtDate(t.date)}</span></div>
+        <div class="detail-row"><span class="detail-key">Departure</span><span class="detail-val">${fmtTime(t.departure)}</span></div>
+        <div class="detail-row"><span class="detail-key">Arrival</span><span class="detail-val">${fmtTime(t.arrival)}</span></div>
         <div class="detail-row"><span class="detail-key">Captain</span><span class="detail-val">${t.captain}</span></div>
         <div class="detail-row"><span class="detail-key">Participants</span><span class="detail-val">${t.participants || "—"}</span></div>
         <div class="detail-row"><span class="detail-key">Route</span><span class="detail-val">${t.route || "—"}</span></div>
@@ -184,8 +210,8 @@ function editTrip(id) {
     if (!t) return
     editingTripId = id
     document.getElementById("date").value = t.date || ""
-    document.getElementById("departure").value = t.departure || ""
-    document.getElementById("arrival").value = t.arrival || ""
+    document.getElementById("departure").value = fmtTime(t.departure) || ""
+    document.getElementById("arrival").value = fmtTime(t.arrival) || ""
     document.getElementById("captain").value = t.captain || ""
     document.getElementById("participants").value = t.participants || ""
     document.getElementById("route").value = t.route || ""
@@ -295,7 +321,6 @@ async function loadNotesFromServer() {
         const res = await postData({ action: "getNotes" })
         const data = await res.json()
         const notes = Array.isArray(data) ? data : []
-        // Guard: reject trip data accidentally returned (trips have 'departure', notes have 'text')
         if (notes.length === 0 || notes[0].text !== undefined) {
             localStorage.setItem("notes", JSON.stringify(notes))
         }
@@ -353,7 +378,7 @@ function renderNotes() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title" style="font-size:15px">${short}</p>
-            <p class="trip-meta">${n.date}</p>
+            <p class="trip-meta">${fmtDate(n.date)}</p>
             ${n.photo ? '<span class="tag">📷</span>' : ""}
             ${(n.lat && n.lng) ? '<span class="tag">📍</span>' : ""}
             <div class="trip-actions">
@@ -377,7 +402,7 @@ function viewNote(id) {
             ${parseFloat(n.lat).toFixed(5)}, ${parseFloat(n.lng).toFixed(5)}</a></p>`
     }
     document.getElementById("noteDetailContent").innerHTML = `
-        <p><strong>Date:</strong> ${n.date}</p>
+        <p><strong>Date:</strong> ${fmtDate(n.date)}</p>
         <p style="white-space:pre-wrap">${n.text}</p>
         ${locationHtml}
         ${n.photo ? `<img src="${n.photo}" alt="Note photo">` : ""}
@@ -426,7 +451,6 @@ async function loadInvoicesFromServer() {
         const res = await postData({ action: "getInvoices" })
         const data = await res.json()
         const invoices = Array.isArray(data) ? data : []
-        // Guard: reject trip data accidentally returned (trips have 'departure', invoices have 'desc')
         if (invoices.length === 0 || invoices[0].desc !== undefined) {
             localStorage.setItem("invoices", JSON.stringify(invoices))
         }
@@ -502,7 +526,7 @@ function renderInvoices() {
         div.className = "trip"
         div.innerHTML = `
             <p class="trip-title">${inv.desc}</p>
-            <p class="trip-meta">${inv.date || ""} &nbsp;·&nbsp; ${inv.category || "Other"}</p>
+            <p class="trip-meta">${fmtDate(inv.date)} &nbsp;·&nbsp; ${inv.category || "Other"}</p>
             <span class="tag">€${parseFloat(inv.amount || 0).toFixed(2)}</span>
             ${inv.photo ? `<img src="${inv.photo}" alt="Receipt">` : ""}
             <div class="trip-actions">
@@ -546,11 +570,8 @@ async function deleteInvoice(id) {
 // ===== INIT =====
 // ========================================
 window.addEventListener("DOMContentLoaded", () => {
-    // Set active nav for initial page
     document.getElementById("navLog")?.classList.add("active")
-
     setDefaultLogValues()
-
     loadTripsFromServer()
     loadNotesFromServer()
     loadInvoicesFromServer()
@@ -599,9 +620,7 @@ async function loadWarnings() {
         if (!res.ok) throw new Error("HTTP " + res.status)
         const data = await res.json()
         if (data.error) throw new Error(data.error.message)
-
         renderWarnings(data.features || [])
-
     } catch (err) {
         console.error("Hoiatuste laadimine ebaõnnestus:", err)
         list.innerHTML = `<p class="empty">Hoiatuste laadimine ebaõnnestus.<br><small>${err.message}</small></p>`
@@ -623,12 +642,10 @@ function renderWarnings(warnings) {
     }
 
     list.innerHTML = ""
-
     warnings.sort((a, b) => (b.attributes.warning_number || 0) - (a.attributes.warning_number || 0))
 
     warnings.forEach((w, idx) => {
         const a = w.attributes
-
         const number   = a.warning_number || ""
         const title    = a.ntfct_title_est || "Hoiatus " + (number || idx + 1)
         const text     = a.ntfct_text_est  || a.comments || ""
@@ -638,29 +655,19 @@ function renderWarnings(warnings) {
         const charts   = a.charts || ""
         const dateFrom = a.date_from ? new Date(a.date_from) : null
         const dateTo   = a.date_to   ? new Date(a.date_to)   : null
-        const dateRange = formatDateRange(dateFrom, dateTo)
-        const id        = String(a.globalid || idx).replace(/[{}]/g, "")
+        const dateFrom_str = dateFrom ? dateFrom.toLocaleDateString("et-EE", { day: "numeric", month: "short", year: "numeric" }) : ""
+        const dateRange    = formatDateRange(dateFrom, dateTo)
+        const id           = String(a.globalid || idx).replace(/[{}]/g, "")
 
         const card = document.createElement("div")
-        card.className = "warning-card"
+        card.className = "trip warning-card"
         card.id = "warning-" + id
+        card.style.cursor = "pointer"
+        card.onclick = () => toggleWarning(id)
 
         card.innerHTML = `
-            <div class="warning-header" onclick="toggleWarning('${id}')">
-                <div class="warning-header-main">
-                    ${number ? `<span class="warning-number">#${number}</span>` : ""}
-                    <span class="warning-title">${title}</span>
-                </div>
-                <div class="warning-header-meta">
-                    ${area ? `<span class="tag">${area}</span>` : ""}
-                    ${dateRange ? `<span class="warning-date">${dateRange}</span>` : ""}
-                    <span class="warning-chevron">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"/>
-                        </svg>
-                    </span>
-                </div>
-            </div>
+            <p class="trip-title">${number ? `#${number} — ` : ""}${title}</p>
+            <p class="trip-meta">${dateFrom_str ? "Alates " + dateFrom_str : "—"}</p>
             <div class="warning-body">
                 ${text ? `<p class="warning-desc">${text}</p>` : ""}
                 <div class="warning-detail-row">
@@ -680,11 +687,10 @@ function renderWarnings(warnings) {
                     <span class="detail-val">${charts}</span>
                 </div>` : ""}
                 ${docUrl ? `<div class="warning-actions">
-                    <a href="${docUrl}" target="_blank" class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid var(--border);color:var(--text);margin-top:12px;">Dokument ↗</a>
+                    <a href="${docUrl}" target="_blank" class="btn-secondary" onclick="event.stopPropagation()" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid var(--border);color:var(--text);margin-top:12px;">Dokument ↗</a>
                 </div>` : ""}
             </div>
         `
-
         list.appendChild(card)
     })
 }
