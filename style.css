@@ -52,7 +52,7 @@ line-height:1.5;
 }
 
 header{
-padding:var(--header-pad-y) 20px;
+padding:var(--header-pad-y) 0px;
 min-height:var(--header-min-height);
 background:rgba(209,209,209,0.58);
 backdrop-filter:blur(24px) saturate(1.35);
