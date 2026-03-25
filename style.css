@@ -98,7 +98,7 @@ height:var(--header-expanded-space);
 display:flex;
 align-items:center;
 color:#0D0D0D;
-padding:var(--logo-pad-y) 0;
+padding:var(--logo-pad-y) 20px;
 transition:padding 0.22s ease;
 }
 
