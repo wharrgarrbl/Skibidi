@@ -168,6 +168,7 @@ width:24px;
 height:24px;
 padding:0;
 align-self:flex-start;
+  margin-right:20px;
 }
 
 body.header-collapsed #themeToggle{
