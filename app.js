@@ -1,4 +1,6 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbyPhfQ7MZonZHZHo11BMefKC4fbiDZd52D11YOJPgb-6cZDCq-7W8duOp3bJCW__YUpzA/exec"
+const HEADER_COLLAPSE_SCROLL = 72
+const HEADER_EXPAND_SCROLL = 36
 
 // ===== TOAST =====
 function showToast(message, duration = 2500) {
@@ -20,16 +22,57 @@ const NAV_MAP = {
     warnings: "navWarnings"
 }
 
+const STAGGER_SELECTOR = [
+    "label",
+    "input",
+    "select",
+    "textarea",
+    ".btn-row",
+    ".section-toolbar",
+    "#noteForm",
+    "#tripList > *",
+    "#invoiceList > *",
+    "#notesList > *",
+    "#warningsList > *",
+    "#tripDetailContent > *",
+    "#noteDetailContent > *",
+    ".page > button:not(#themeToggle)"
+].join(", ")
+
+function staggerElements(root) {
+    if (!root) return
+    const items = Array.from(root.querySelectorAll(STAGGER_SELECTOR))
+        .filter((el, index, arr) => arr.indexOf(el) === index)
+        .filter(el => el.offsetParent !== null)
+
+    items.forEach((el, index) => {
+        el.classList.remove("stagger-in")
+        el.style.setProperty("--enter-index", index)
+    })
+
+    requestAnimationFrame(() => {
+        items.forEach(el => el.classList.add("stagger-in"))
+    })
+}
+
 function showPage(id) {
+    window.scrollTo({ top: 0, behavior: "auto" })
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"))
-    document.getElementById(id).classList.add("active")
+    const nextPage = document.getElementById(id)
+    if (!nextPage) return
+    void nextPage.offsetWidth
+    nextPage.classList.add("active")
+    updateHeaderPageTitle(id)
+    staggerElements(nextPage)
     document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"))
     const navId = NAV_MAP[id]
     if (navId) document.getElementById(navId)?.classList.add("active")
+    updateHeaderCollapse()
 }
 
 // ===== THEME =====
 const toggle = document.getElementById("themeToggle")
+const headerPageTitle = document.getElementById("headerPageTitle")
 const savedTheme = localStorage.getItem("theme")
 if (savedTheme) document.documentElement.dataset.theme = savedTheme
 
@@ -38,6 +81,45 @@ toggle.onclick = () => {
     const next = isDark ? "light" : "dark"
     document.documentElement.dataset.theme = next
     localStorage.setItem("theme", next)
+}
+
+function updateHeaderPageTitle(pageId) {
+    const activePage = document.getElementById(pageId) || document.querySelector(".page.active")
+    const title = activePage?.querySelector("h2")?.textContent?.trim() || ""
+    if (headerPageTitle) headerPageTitle.textContent = title
+}
+
+function updateHeaderCollapse() {
+    const progress = Math.min(window.scrollY / HEADER_COLLAPSE_SCROLL, 1)
+    document.documentElement.style.setProperty("--header-progress", progress.toFixed(3))
+    const activeBodyTitle = document.querySelector(".page.active > h2")
+
+    if (activeBodyTitle) {
+        activeBodyTitle.style.opacity = String(1 - progress)
+        activeBodyTitle.style.transform = `translateY(${-10 * progress}px)`
+        activeBodyTitle.style.maxHeight = `${120 * (1 - 0.98 * progress)}px`
+        activeBodyTitle.style.marginBottom = `${20 * (1 - progress)}px`
+        activeBodyTitle.style.pointerEvents = progress > 0.9 ? "none" : ""
+    }
+
+    const isCollapsed = document.body.classList.contains("header-collapsed")
+    let nextCollapsed = isCollapsed
+
+    if (!isCollapsed && window.scrollY > HEADER_COLLAPSE_SCROLL) {
+        document.body.classList.add("header-collapsed")
+        nextCollapsed = true
+    }
+    if (isCollapsed && window.scrollY < HEADER_EXPAND_SCROLL) {
+        document.body.classList.remove("header-collapsed")
+        nextCollapsed = false
+    }
+
+    if (headerPageTitle) {
+        headerPageTitle.style.maxWidth = nextCollapsed ? "220px" : "0"
+        headerPageTitle.style.opacity = nextCollapsed ? "1" : "0"
+        headerPageTitle.style.transform = nextCollapsed ? "translateY(0)" : "translateY(6px)"
+        headerPageTitle.style.paddingTop = nextCollapsed ? "0" : "6px"
+    }
 }
 
 // ===== IMAGE UTILS =====
@@ -181,6 +263,7 @@ function renderTrips() {
         `
         list.appendChild(div)
     })
+    if (document.getElementById("trips")?.classList.contains("active")) staggerElements(document.getElementById("trips"))
 }
 
 function viewTrip(id) {
@@ -220,6 +303,7 @@ function editTrip(id) {
     document.getElementById("engineStart").value = t.engineStart || ""
     document.getElementById("engineEnd").value = t.engineEnd || ""
     document.getElementById("logTitle").textContent = "Edit outing"
+    updateHeaderPageTitle("log")
     document.getElementById("saveTripBtn").textContent = "Update outing"
     document.getElementById("cancelEditBtn").style.display = "inline-flex"
     showPage("log")
@@ -228,6 +312,7 @@ function editTrip(id) {
 function cancelTripEdit() {
     editingTripId = null
     document.getElementById("logTitle").textContent = "Log outing"
+    updateHeaderPageTitle("log")
     document.getElementById("saveTripBtn").textContent = "Save outing"
     document.getElementById("cancelEditBtn").style.display = "none"
     clearTripForm()
@@ -281,6 +366,7 @@ async function saveTrip() {
         showToast(editingTripId ? "✓ Outing updated" : "✓ Outing saved")
         editingTripId = null
         document.getElementById("logTitle").textContent = "Log outing"
+        updateHeaderPageTitle("log")
         document.getElementById("saveTripBtn").textContent = "Save outing"
         document.getElementById("cancelEditBtn").style.display = "none"
         clearTripForm()
@@ -389,6 +475,7 @@ function renderNotes() {
         `
         list.appendChild(div)
     })
+    if (document.getElementById("notes")?.classList.contains("active")) staggerElements(document.getElementById("notes"))
 }
 
 function viewNote(id) {
@@ -536,6 +623,7 @@ function renderInvoices() {
         `
         list.appendChild(div)
     })
+    if (document.getElementById("invoices")?.classList.contains("active")) staggerElements(document.getElementById("invoices"))
 }
 
 function editInvoice(id) {
@@ -571,12 +659,17 @@ async function deleteInvoice(id) {
 // ========================================
 window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("navLog")?.classList.add("active")
+    updateHeaderPageTitle("log")
+    updateHeaderCollapse()
     setDefaultLogValues()
     loadTripsFromServer()
     loadNotesFromServer()
     loadInvoicesFromServer()
     initWarningsMap()
+    staggerElements(document.querySelector(".page.active"))
 })
+
+window.addEventListener("scroll", updateHeaderCollapse, { passive: true })
 
 
 
@@ -693,6 +786,7 @@ function renderWarnings(warnings) {
         `
         list.appendChild(card)
     })
+    if (document.getElementById("warnings")?.classList.contains("active")) staggerElements(document.getElementById("warnings"))
 }
 
 function toggleWarning(id) {
